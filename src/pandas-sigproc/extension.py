@@ -16,6 +16,261 @@ import sounddevice as sd
 import rainflow as rf
 
 
+@pd.api.extensions.register_series_accessor("freqdomain")
+class FreqDomain:
+    """
+    Container and functions for working with power spectral density
+    """
+
+    _obj = None
+    "Object property"
+
+    unit = "none"
+    "Engineering units"
+
+    def __init__(self, pd_series: pd.Series):
+        """
+        Class constructor
+
+        Parameters
+        ----------
+        pd_series : pandas Series
+            Pandas series object
+
+        """
+
+        # Construct in the superclass
+        pd_series.index.name = "time"
+        self._obj = pd_series
+
+    def _get_x(self):
+        """Get the x values"""
+        return self._obj.index.to_numpy(copy=True)
+
+    def _get_y(self):
+        """Get the y values"""
+        return self._obj.to_numpy(copy=True)
+
+    @property
+    def _name(self):
+        """Name of the series"""
+        return str(self._obj.name)
+
+    def plot(self, ax: plt.axis = None, loglog: bool = True, **kwargs):
+        """
+        Plot the freqdomain
+
+        Parameters
+        ----------
+        ax : pyplot axis, optional
+            Pass an existing axis on which to draw the plot. The default is
+            None.
+        loglog : bool, default True
+            Plot in loglog space
+        **kwargs
+            optional arguments for pyplot
+
+        Returns
+        -------
+        ax : pyplot axis
+            The axis used for this plot
+
+        """
+
+        # Create a new figure and axis if one isn't supplied
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot()
+
+        # Basic plotting
+        self._obj.plot(ax=ax,
+                       xlabel='frequency',
+                       ylabel=self.unit,
+                       grid=True,
+                       legend=True,
+                       **kwargs)
+
+        # PSD best plotted in log-log by default
+        if loglog:
+            ax.set_xscale("log")
+            ax.set_yscale("log")
+
+        # Return an axis
+        return ax
+
+    def between(self, start: float, end: float):
+        """
+        Get PSD between and including two points in freq domain
+
+        Parameters
+        ----------
+        start : float
+            Lower frequency value
+        end : float
+            Upper frequency value
+
+        Returns
+        -------
+        Series
+            Modified freq series
+
+        """
+
+        # Underlying data
+        x = self._get_x()
+        y = self._get_y()
+
+        # Call series function
+        x2, y2 = _between(x, y, start, end)
+        return FreqDomain._reconstruct(x2, y2, self._name, self.unit)
+
+    def rms_lin(self):
+        """
+        Get the RMS of the PSD in linear space. This is suitable for PSDs which
+        are densely populated, such as PSDs calculated from a time history.
+
+        Returns
+        -------
+        float
+            The RMS value
+
+        """
+
+        # Underlying data
+        x = self._get_x()
+        y = self._get_y()
+
+        # RMS of PSD in log-log space
+        return sp_tools.rms_psd_linear(y, x)
+
+    def rms_log(self):
+        """
+        Get the RMS of the PSD in log-log space, recommended for sparsely
+        populated PSDs which have linear regions on a log-log plot. Typically
+        specs fall into this category. Densely populated PSDs will likely run
+        out of machine precision and need to revert to linear space for the
+        integral.
+
+        Returns
+        -------
+        float
+            The RMS value
+
+        """
+
+        # Underlying data
+        x = self._get_x()
+        y = self._get_y()
+
+        # RMS of PSD in log-log space
+        return sp_tools.rms_psd_loglog(y, x)
+
+    def interp1d(self, x2, kind: str = 'linear'):
+        """
+        Interpolate a 1-D function
+
+        Parameters:
+        ----------
+        x2: array-like
+            The new x values to interpolate against
+        kind : str, optional
+            Specifies the kind of interpolation as a string or as an integer specifying the order of the spline
+            interpolator to use. The string has to be one of ‘linear’, ‘nearest’, ‘nearest-up’, ‘zero’, ‘slinear’,
+            ‘quadratic’, ‘cubic’, ‘previous’, or ‘next’. ‘zero’, ‘slinear’, ‘quadratic’ and ‘cubic’ refer to a
+            spline interpolation of zeroth, first, second or third order; ‘previous’ and ‘next’ simply return the
+            previous or next value of the point; ‘nearest-up’ and ‘nearest’ differ when interpolating half-integers
+            (e.g. 0.5, 1.5) in that ‘nearest-up’ rounds up and ‘nearest’ rounds down. Default is ‘linear’.
+
+        Returns
+        -------
+        Series
+            Modified freq series
+
+        """
+
+        # Name
+        inp_name = 'interp(' + str(self._obj.name) + ')'
+
+        # Underlying data
+        x = self._get_x()
+        y = self._get_y()
+
+        # Call series function
+        y2 = _interp1d(x, y, x2, kind)
+        return FreqDomain._reconstruct(x2, y2, inp_name, self.unit)
+
+    def interp1d_log(self, x2):
+        """
+        Interpolate a 1-D function in log-log space
+
+        Parameters:
+        ----------
+        x2: array-like
+            The new x values to interpolate against
+        kind : str or int, optional
+            Specifies the kind of interpolation as a string or as an integer specifying the order of the spline
+            interpolator to use. The string has to be one of ‘linear’, ‘nearest’, ‘nearest-up’, ‘zero’, ‘slinear’,
+            ‘quadratic’, ‘cubic’, ‘previous’, or ‘next’. ‘zero’, ‘slinear’, ‘quadratic’ and ‘cubic’ refer to a
+            spline interpolation of zeroth, first, second or third order; ‘previous’ and ‘next’ simply return the
+            previous or next value of the point; ‘nearest-up’ and ‘nearest’ differ when interpolating half-integers
+            (e.g. 0.5, 1.5) in that ‘nearest-up’ rounds up and ‘nearest’ rounds down. Default is ‘linear’.
+
+        Returns
+        -------
+        Series
+            Modified freq series
+
+        """
+
+        # Get timestamps and samples
+        x = self._get_x()
+        y = self._get_y()
+
+        # Create interpolation function
+        f = scipy.interpolate.interp1d(np.log10(x), np.log10(y))
+        name = 'interp(' + self._name + ')'
+
+        # Return val
+        y2 = f(np.log10(x2))
+        y2 = 10 ** y2
+
+        # Return as PSD
+        return FreqDomain._reconstruct(x2, y2, name, self.unit)
+
+    @staticmethod
+    def _reconstruct(x, y, name, unit):
+        """Reconstruct a timedomain"""
+
+        out_data = pd.Series(y, x, name=name)
+        out_data.freqdomain.unit = unit
+        return out_data
+
+
+def _between(x: np.array, y: np.array, start: float, end: float):
+    """
+    Get between and including two points
+    """
+
+    # Select subset
+    y2 = y[(x <= end) & (x >= start)]
+    x2 = x[(x <= end) & (x >= start)]
+
+    return x2, y2
+
+
+def _interp1d(x: np.array, y: np.array, x2, kind: str = 'linear'):
+    """
+    Interpolate a pandas series
+    """
+
+    # Create interpolation function
+    f = scipy.interpolate.interp1d(x, y, kind)
+
+    # Return val
+    y2 = f(x2)
+    return y2
+
+
 @pd.api.extensions.register_series_accessor("timedomain")
 class TimeDomain:
     """
@@ -747,258 +1002,4 @@ class TimeDomain:
             out_data.index = pd.to_datetime(out_data.index, unit="s", origin=origin)
         out_data.timedomain.unit = unit
         return out_data
-
-
-@pd.api.extensions.register_series_accessor("freqdomain")
-class FreqDomain:
-    """
-    Container and functions for working with power spectral density
-    """
-
-    _obj = None
-    "Object property"
-
-    unit = "none"
-    "Engineering units"
-
-    def __init__(self, pd_series: pd.Series):
-        """
-        Class constructor
-
-        Parameters
-        ----------
-        pd_series : pandas Series
-            Pandas series object
-
-        """
-
-        # Construct in the superclass
-        pd_series.index.name = "time"
-        self._obj = pd_series
-
-    def _get_x(self):
-        """Get the x values"""
-        return self._obj.index.to_numpy(copy=True)
-
-    def _get_y(self):
-        """Get the y values"""
-        return self._obj.to_numpy(copy=True)
-
-    @property
-    def _name(self):
-        """Name of the series"""
-        return str(self._obj.name)
-
-    def plot(self, ax: plt.axis = None, loglog: bool = True, **kwargs):
-        """
-        Plot the freqdomain
-
-        Parameters
-        ----------
-        ax : pyplot axis, optional
-            Pass an existing axis on which to draw the plot. The default is
-            None.
-        loglog : bool, default True
-            Plot in loglog space
-        **kwargs
-            optional arguments for pyplot
-
-        Returns
-        -------
-        ax : pyplot axis
-            The axis used for this plot
-
-        """
-
-        # Create a new figure and axis if one isn't supplied
-        if ax is None:
-            fig = plt.figure()
-            ax = fig.add_subplot()
-
-        # Basic plotting
-        self._obj.plot(ax=ax,
-                       xlabel='frequency',
-                       ylabel=self.unit,
-                       grid=True,
-                       legend=True,
-                       **kwargs)
-
-        # PSD best plotted in log-log by default
-        if loglog:
-            ax.set_xscale("log")
-            ax.set_yscale("log")
-
-        # Return an axis
-        return ax
-
-    def between(self, start: float, end: float):
-        """
-        Get PSD between and including two points in freq domain
-
-        Parameters
-        ----------
-        start : float
-            Lower frequency value
-        end : float
-            Upper frequency value
-
-        Returns
-        -------
-        Series
-            Modified freq series
-
-        """
-
-        # Underlying data
-        x = self._get_x()
-        y = self._get_y()
-
-        # Call series function
-        x2, y2 = _between(x, y, start, end)
-        return FreqDomain._reconstruct(x2, y2, self._name, self.unit)
-
-    def rms_lin(self):
-        """
-        Get the RMS of the PSD in linear space. This is suitable for PSDs which
-        are densely populated, such as PSDs calculated from a time history.
-
-        Returns
-        -------
-        float
-            The RMS value
-
-        """
-
-        # Underlying data
-        x = self._get_x()
-        y = self._get_y()
-
-        # RMS of PSD in log-log space
-        return sp_tools.rms_psd_linear(y, x)
-
-    def rms_log(self):
-        """
-        Get the RMS of the PSD in log-log space, recommended for sparsely
-        populated PSDs which have linear regions on a log-log plot. Typically
-        specs fall into this category. Densely populated PSDs will likely run
-        out of machine precision and need to revert to linear space for the
-        integral.
-
-        Returns
-        -------
-        float
-            The RMS value
-
-        """
-
-        # Underlying data
-        x = self._get_x()
-        y = self._get_y()
-
-        # RMS of PSD in log-log space
-        return sp_tools.rms_psd_loglog(y, x)
-
-    def interp1d(self, x2, kind: str = 'linear'):
-        """
-        Interpolate a 1-D function
-
-        Parameters:
-        ----------
-        x2: array-like
-            The new x values to interpolate against
-        kind : str, optional
-            Specifies the kind of interpolation as a string or as an integer specifying the order of the spline
-            interpolator to use. The string has to be one of ‘linear’, ‘nearest’, ‘nearest-up’, ‘zero’, ‘slinear’,
-            ‘quadratic’, ‘cubic’, ‘previous’, or ‘next’. ‘zero’, ‘slinear’, ‘quadratic’ and ‘cubic’ refer to a
-            spline interpolation of zeroth, first, second or third order; ‘previous’ and ‘next’ simply return the
-            previous or next value of the point; ‘nearest-up’ and ‘nearest’ differ when interpolating half-integers
-            (e.g. 0.5, 1.5) in that ‘nearest-up’ rounds up and ‘nearest’ rounds down. Default is ‘linear’.
-
-        Returns
-        -------
-        Series
-            Modified freq series
-
-        """
-
-        # Name
-        inp_name = 'interp(' + str(self._obj.name) + ')'
-
-        # Underlying data
-        x = self._get_x()
-        y = self._get_y()
-
-        # Call series function
-        y2 = _interp1d(x, y, x2, kind)
-        return FreqDomain._reconstruct(x2, y2, inp_name, self.unit)
-
-    def interp1d_log(self, x2):
-        """
-        Interpolate a 1-D function in log-log space
-
-        Parameters:
-        ----------
-        x2: array-like
-            The new x values to interpolate against
-        kind : str or int, optional
-            Specifies the kind of interpolation as a string or as an integer specifying the order of the spline
-            interpolator to use. The string has to be one of ‘linear’, ‘nearest’, ‘nearest-up’, ‘zero’, ‘slinear’,
-            ‘quadratic’, ‘cubic’, ‘previous’, or ‘next’. ‘zero’, ‘slinear’, ‘quadratic’ and ‘cubic’ refer to a
-            spline interpolation of zeroth, first, second or third order; ‘previous’ and ‘next’ simply return the
-            previous or next value of the point; ‘nearest-up’ and ‘nearest’ differ when interpolating half-integers
-            (e.g. 0.5, 1.5) in that ‘nearest-up’ rounds up and ‘nearest’ rounds down. Default is ‘linear’.
-
-        Returns
-        -------
-        Series
-            Modified freq series
-
-        """
-
-        # Get timestamps and samples
-        x = self._get_x()
-        y = self._get_y()
-
-        # Create interpolation function
-        f = scipy.interpolate.interp1d(np.log10(x), np.log10(y))
-        name = 'interp(' + self._name + ')'
-
-        # Return val
-        y2 = f(np.log10(x2))
-        y2 = 10 ** y2
-
-        # Return as PSD
-        return FreqDomain._reconstruct(x2, y2, name, self.unit)
-
-    @staticmethod
-    def _reconstruct(x, y, name, unit):
-        """Reconstruct a timedomain"""
-
-        out_data = pd.Series(y, x, name=name)
-        out_data.freqdomain.unit = unit
-        return out_data
-
-
-def _between(x: np.array, y: np.array, start: float, end: float):
-    """
-    Get between and including two points
-    """
-
-    # Select subset
-    y2 = y[(x <= end) & (x >= start)]
-    x2 = x[(x <= end) & (x >= start)]
-
-    return x2, y2
-
-
-def _interp1d(x: np.array, y: np.array, x2, kind: str = 'linear'):
-    """
-    Interpolate a pandas series
-    """
-
-    # Create interpolation function
-    f = scipy.interpolate.interp1d(x, y, kind)
-
-    # Return val
-    y2 = f(x2)
-    return y2
+    
