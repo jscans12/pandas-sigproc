@@ -246,31 +246,6 @@ class FreqDomain:
         return out_data
 
 
-def _between(x: np.array, y: np.array, start: float, end: float):
-    """
-    Get between and including two points
-    """
-
-    # Select subset
-    y2 = y[(x <= end) & (x >= start)]
-    x2 = x[(x <= end) & (x >= start)]
-
-    return x2, y2
-
-
-def _interp1d(x: np.array, y: np.array, x2, kind: str = 'linear'):
-    """
-    Interpolate a pandas series
-    """
-
-    # Create interpolation function
-    f = scipy.interpolate.interp1d(x, y, kind)
-
-    # Return val
-    y2 = f(x2)
-    return y2
-
-
 @pd.api.extensions.register_series_accessor("timedomain")
 class TimeDomain:
     """
@@ -1003,3 +978,27 @@ class TimeDomain:
         out_data.timedomain.unit = unit
         return out_data
     
+
+def _between(x: np.array, y: np.array, start: float, end: float):
+    """
+    Get between and including two points
+    """
+
+    # Select subset
+    y2 = y[(x <= end) & (x >= start)]
+    x2 = x[(x <= end) & (x >= start)]
+
+    return x2, y2
+
+
+def _interp1d(x: np.array, y: np.array, x2, kind: str = 'linear'):
+    """
+    Interpolate a pandas series
+    """
+
+    # Create interpolation function
+    f = scipy.interpolate.interp1d(x, y, kind)
+
+    # Return val
+    y2 = f(x2)
+    return y2
