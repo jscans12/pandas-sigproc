@@ -10,7 +10,7 @@ pip install pandas-sigproc
 Once installed, the package can be referenced as such:
 
 ```python
-import pandas_sigproc.extension as pd_sigproc
+import pandas_sigproc.extension
 ```
 
 There are two extensions included in the package:
