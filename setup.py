@@ -20,7 +20,7 @@ setuptools.setup(
     name='pandas-sigproc',
     version='1.0',
     description='Useful pandas extensions for detailed signal processing',
-    url='https://github.com/johns7591/pandas-extensions',
+    url='https://github.com/johns7591/pandas-sigproc',
     author='John Scanlon',
     author_email='john.t.scanlon.2@gmail.com',
     packages=setuptools.find_packages(where='src'),
