@@ -1,13 +1,16 @@
-# -*- coding: utf-8 -*-
-import math
+
+"""
+Helper functions
+@author: john.scanlon
+"""
+
 import numpy as np
 import scipy.signal
 import warnings
 from scipy.io import wavfile
 
 
-def build_freq_array(fn_start: float = 10., fn_end: float = 1000.,
-                     oct_step_size: float = (1. / 12.)):
+def build_freq_array(fn_start: float = 10., fn_end: float = 1000., oct_step_size: float = (1. / 12.)):
     """
     Get an array of natural frequencies
     
@@ -390,81 +393,3 @@ def srs(time: np.array, accel: np.array, fn_array: np.array = None,
         neg_accel[i] = np.abs(output_accel_g.min())
 
     return pos_accel, neg_accel
-
-
-def build_shock_pulse(pulse_width: float, time_dt: float,
-                      mag: float = 1.,
-                      pre_padding: float = 1.,
-                      post_padding: float = 10.,
-                      waveform: str = 'half sine'):
-    """
-    Build a shock pulse
-    @author: john.scanlon
-    
-    Parameters
-    ----------
-    pulse_width : float
-        Pulse width in s
-    time_dt :float
-        Time step in s
-    mag : float, optional
-        Shock magnitude. The default is 1.
-    pre_padding : float, optional
-        Padding prior to the shock pulse in multiples of pulse width. The default
-        is 1.
-    post_padding : float, optional
-        Padding after the shock pulse in multiples of pulse width. The default
-        is 10.
-    waveform : str, optional
-        The waveform of the shock pulse. Options are typical electrodynamic shaker waveforms-
-        half sine, haversine, square, triangular, initial sawtooth, terminal sawtooth
-        The default is half sine.
-        
-    Returns
-    -------
-    time : float array
-        Time vector
-    accel : float array
-        Shock acceleration vector
-    
-    """
-
-    # End time for the pulse history
-    time_end = pulse_width * (pre_padding + post_padding + 1)
-
-    # Create a time vector
-    time = np.linspace(0, time_end, round((time_end / time_dt) + 1))
-
-    # Generate the shock pulse
-    if waveform == 'half sine' or waveform == 'sine' or waveform == 'sin':
-        accel = mag * np.sin((np.pi * (time - pulse_width * pre_padding)) / pulse_width)
-    elif waveform == 'haversine':
-        accel = mag * np.sin((np.pi * (time-pulse_width*pre_padding)) / pulse_width) ** 2
-    elif waveform == 'square' or waveform == 'rectangular' or waveform == 'rectangle' or waveform == 'rect':
-        accel = mag * np.ones_like(time)
-    elif waveform == 'triangular' or waveform == 'triangle':
-        # This is probably needlessly overcomplicated...
-        accel = mag * np.zeros_like(time)
-        m1 = (2*mag) / pulse_width
-        b1 = (-2*mag*pulse_width*pre_padding) / pulse_width
-        m2 = -(2*mag) / pulse_width
-        b2 = (2*mag*(pulse_width*(pre_padding + 1))) / pulse_width
-        accel[time < pulse_width * (pre_padding + 0.5)] = m1 * time[time < pulse_width * (pre_padding + 0.5)] + b1
-        accel[time >= pulse_width * (pre_padding + 0.5)] = m2 * time[time >= pulse_width * (pre_padding + 0.5)] + b2
-    elif waveform == 'initial sawtooth' or waveform == 'init sawtooth':
-        m = -mag / pulse_width
-        b = (mag*pulse_width*(1+pre_padding)) / pulse_width
-        accel = m * time + b
-    elif waveform == 'terminal sawtooth' or waveform == 'term sawtooth':
-        m = mag / pulse_width
-        b = (-mag * pulse_width * pre_padding) / pulse_width
-        accel = m * time + b
-    else:
-        raise Exception('%s is not a defined waveform' % waveform)
-
-    # Zero the padding ranges
-    accel[time < pulse_width * pre_padding] = 0
-    accel[time > pulse_width * (pre_padding + 1)] = 0
-
-    return time, accel
-  

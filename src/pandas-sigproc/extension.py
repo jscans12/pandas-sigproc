@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+
 """
 Extensions of Pandas series
 @author: john.scanlon
