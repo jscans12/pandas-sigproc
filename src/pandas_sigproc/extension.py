@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import scipy.signal
 import scipy.integrate
 import scipy.interpolate
-import pandas-sigproc.tools as sp_tools
+import pandas_sigproc.tools as sp_tools
 import sounddevice as sd
 import rainflow as rf
 
