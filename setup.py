@@ -18,7 +18,7 @@ def read_requirements():
 
 setuptools.setup(
     name='pandas-sigproc',
-    version='1.0',
+    version='1.0.1',
     description='Useful pandas extensions for detailed signal processing',
     long_description=read('README.md'),
     url='https://github.com/johns7591/pandas-sigproc',
