@@ -1,6 +1,6 @@
 
 """
-Helper functions
+Utility functions for pandas-sigproc toolbox
 @author: john.scanlon
 """
 
@@ -10,52 +10,14 @@ import warnings
 from scipy.io import wavfile
 
 
-def build_freq_array(fn_start: float = 10., fn_end: float = 1000., oct_step_size: float = (1. / 12.)):
-    """
-    Get an array of natural frequencies
-    
-    @author: dsholes
-    Date: November 8, 2018
-    Version: 0.1
-    https://github.com/dsholes/python-srs
-    
-    Parameters
-    ----------
-    fn_start : float, optional
-        Start frequency. The default is 10.
-    fn_end : float, optional
-        End frequency. The default is 1000.
-    oct_step_size : float, optional
-        Octave step size. The default is 1/12.
-    
-    Returns
-    -------
-    float array
-        The frequency array
-    
-    """
-
-    fn_array = [fn_start]
-    for i in range(int(fn_end - fn_start)):
-        new_fn = (fn_start * 2. ** oct_step_size)
-        fn_array.append(new_fn)
-        fn_start = new_fn
-        if fn_start > fn_end:
-            break
-    fn_array = np.array(fn_array)
-
-    return fn_array
-
-
-def psd(values, sample_rate,
-        window_length: float = None, overlap: float = 0.5, window_type: str = 'hann',
-        summarize: str = 'mean', fatigue_exponent: float = 4.0,
-        detrend='constant'):
+def psd(values, sample_rate, window_length: float = None, overlap: float = 0.5, window_type: str = 'hann',
+        summarize: str = 'mean', fatigue_exponent: float = 4.0, detrend='constant'):
     """
     Compute a power spectral density from the timedomain. Uses periodogram by default,
     but user can specify a window and use Welch's method by default. There are also other
     methods offered to perform statistics on the various sub-PSDs.
     https://en.wikipedia.org/wiki/Spectral_density
+    @author: john.scanlon
 
     Parameters
     ----------
@@ -104,8 +66,7 @@ def psd(values, sample_rate,
     # Create window array
     shape = values.shape[:-1] + ((values.shape[-1] - n_overlap) // n_step, n_window)
     strides = values.strides[:-1] + (n_step * values.strides[-1], values.strides[-1])
-    windows = np.lib.stride_tricks.as_strided(values, shape=shape,
-                                              strides=strides)
+    windows = np.lib.stride_tricks.as_strided(values, shape=shape, strides=strides)
 
     # Compute sub-PSDs
     freq_out, psd_all = scipy.signal.periodogram(windows, fs=sample_rate, window=window_type, detrend=detrend, axis=1)
@@ -263,23 +224,60 @@ def spl(values, p_ref):
     return 20*np.log10(values_rms/p_ref)
 
 
+def write_wav(filename, sample_rate, sound_left, sound_right=None):
+    """
+    Create a stereo or mono wav file
+    @author: john.scanlon
+
+    Parameters
+    ----------
+    filename
+        Location to store the wav file
+    sample_rate
+        Sample rate of the data in Hz
+    sound_left
+        Left sound vector
+    sound_right
+        Right sound vector
+
+    """
+
+    # Copy left channel for mono files
+    if sound_right is None:
+        sound_right = sound_left
+
+    # A 2D array where the left and right tones are contained in their respective columns
+    tone_y_stereo = np.vstack((sound_left, sound_right))
+    tone_y_stereo = tone_y_stereo.transpose()
+
+    # Produce an audio file that contains stereo sound
+    wavfile.write(filename, sample_rate, tone_y_stereo)
+
+
 def a_weighting(fs):
     """
     Design of an A-weighting filter.
     b, a = a_weighting(fs) designs a digital A-weighting filter for
-    sampling frequency `fs`. Usage: y = scipy.signal.lfilter(b, a, x).
+    sampling frequency `fs`.
 
     Warning: `fs` should normally be higher than 20 kHz. For example,
     fs = 48000 yields a class 1-compliant filter.
+
     References:
        [1] IEC/CD 1672: Electroacoustics-Sound Level Meters, Nov. 1996.
 
     Translated from a MATLAB script (which also includes C-weighting, octave
     and one-third-octave digital filters).
 
-    Author: Christophe Couvreur, Faculte Polytechnique de Mons (Belgium)
-        couvreur@thor.fpms.ac.be
+    @author christophe.couvreur
+    Faculte Polytechnique de Mons (Belgium)
+    couvreur@thor.fpms.ac.be
     Last modification: Aug. 20, 1997, 10:00am.
+
+    Parameters
+    ----------
+    fs
+        Sample rate in Hz
 
     """
 
@@ -301,23 +299,6 @@ def a_weighting(fs):
     # Use the bilinear transformation to get the digital filter.
     # (Octave, MATLAB, and PyLab disagree about Fs vs 1/Fs)
     return scipy.signal.bilinear(nums, dens, fs)
-
-
-def write_wav(filename, sample_rate, sound_left, sound_right=None):
-    """
-    Create a stereo or mono wav file
-    """
-
-    # Copy left channel for mono files
-    if sound_right is None:
-        sound_right = sound_left
-
-    # A 2D array where the left and right tones are contained in their respective columns
-    tone_y_stereo = np.vstack((sound_left, sound_right))
-    tone_y_stereo = tone_y_stereo.transpose()
-
-    # Produce an audio file that contains stereo sound
-    wavfile.write(filename, sample_rate, tone_y_stereo)
 
     
 def srs(time: np.array, accel: np.array, fn_array: np.array = None,
@@ -341,7 +322,7 @@ def srs(time: np.array, accel: np.array, fn_array: np.array = None,
         Timestamp vector
     accel : numpy array
         Acceleration vector
-    fn_array : float array, optional
+    fn_array : numpy array, optional
         Frequency vector over which the SRS will be calculated. The default is
         the defaults for build_freq_array.
     quality_factor : float, optional
@@ -393,3 +374,40 @@ def srs(time: np.array, accel: np.array, fn_array: np.array = None,
         neg_accel[i] = np.abs(output_accel_g.min())
 
     return pos_accel, neg_accel
+
+
+def build_freq_array(fn_start: float = 10., fn_end: float = 1000., oct_step_size: float = (1. / 12.)):
+    """
+    Get an array of natural frequencies
+
+    @author: dsholes
+    Date: November 8, 2018
+    Version: 0.1
+    https://github.com/dsholes/python-srs
+
+    Parameters
+    ----------
+    fn_start : float, optional
+        Start frequency. The default is 10.
+    fn_end : float, optional
+        End frequency. The default is 1000.
+    oct_step_size : float, optional
+        Octave step size. The default is 1/12.
+
+    Returns
+    -------
+    float array
+        The frequency array
+
+    """
+
+    fn_array = [fn_start]
+    for i in range(int(fn_end - fn_start)):
+        new_fn = (fn_start * 2. ** oct_step_size)
+        fn_array.append(new_fn)
+        fn_start = new_fn
+        if fn_start > fn_end:
+            break
+    fn_array = np.array(fn_array)
+
+    return fn_array
