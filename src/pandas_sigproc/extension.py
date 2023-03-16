@@ -63,8 +63,7 @@ class FreqDomain:
         Parameters
         ----------
         ax : pyplot axis, optional
-            Pass an existing axis on which to draw the plot. The default is
-            None.
+            Pass an existing axis on which to draw the plot. The default is None.
         loglog : bool, default True
             Plot in loglog space
         **kwargs
@@ -146,7 +145,7 @@ class FreqDomain:
     def rms_log(self):
         """
         Get the RMS of the PSD in log-log space, recommended for sparsely
-        populated PSDs which have linear regions on a log-log plot. Typically
+        populated PSDs which have linear regions on a log-log plot. Typically,
         specs fall into this category. Densely populated PSDs will likely run
         out of machine precision and need to revert to linear space for the
         integral.
@@ -207,13 +206,6 @@ class FreqDomain:
         ----------
         x2: array-like
             The new x values to interpolate against
-        kind : str or int, optional
-            Specifies the kind of interpolation as a string or as an integer specifying the order of the spline
-            interpolator to use. The string has to be one of ‘linear’, ‘nearest’, ‘nearest-up’, ‘zero’, ‘slinear’,
-            ‘quadratic’, ‘cubic’, ‘previous’, or ‘next’. ‘zero’, ‘slinear’, ‘quadratic’ and ‘cubic’ refer to a
-            spline interpolation of zeroth, first, second or third order; ‘previous’ and ‘next’ simply return the
-            previous or next value of the point; ‘nearest-up’ and ‘nearest’ differ when interpolating half-integers
-            (e.g. 0.5, 1.5) in that ‘nearest-up’ rounds up and ‘nearest’ rounds down. Default is ‘linear’.
 
         Returns
         -------
@@ -239,7 +231,7 @@ class FreqDomain:
 
     @staticmethod
     def _reconstruct(x, y, name, unit):
-        """Reconstruct a timedomain"""
+        """Reconstruct a freqdomain"""
 
         out_data = pd.Series(y, x, name=name)
         out_data.freqdomain.unit = unit
