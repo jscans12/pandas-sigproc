@@ -498,7 +498,7 @@ class TimeDomain:
 
     def filt_cfc(self, cfc):
         """
-        Filter the timedomain using a CFC filter per SAE J1211
+        Filter the timedomain using a CFC filter per SAE J211
 
         Parameters
         ----------
